@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker - Finance Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Finance Analyzer</a>
+            <div class="navbar-nav">
+                <a class="nav-link active" href="/expenses">Expenses</a>
+                <a class="nav-link" href="/investments">Investments</a>
+                <a class="nav-link" href="/loans">Loans</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2>Expense Tracker</h2>
+        
+        <!-- Add Expense Form -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Add New Expense</h5>
+                <form action="/add_expense" method="POST">
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount ($)</label>
+                        <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <select class="form-control" id="category" name="category" required>
+                            {% for category in categories %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Expense</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Expense List -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Expense History</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for expense in expenses %}
+                            <tr id="expense-{{ loop.index0 }}">
+                                <td>{{ expense.date }}</td>
+                                <td>${{ "%.2f"|format(expense.amount) }}</td>
+                                <td>{{ expense.category }}</td>
+                                <td>{{ expense.description }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary edit-btn" data-expense-id="{{ loop.index0 }}">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-btn" data-expense-id="{{ loop.index0 }}">Delete</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expense Summary -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Expense Summary</h5>
+                <div id="summary"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this modal for editing expenses -->
+    <div class="modal fade" id="editExpenseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Expense</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editExpenseForm">
+                        <input type="hidden" id="edit_expense_id">
+                        <div class="mb-3">
+                            <label for="edit_amount" class="form-label">Amount ($)</label>
+                            <input type="number" step="0.01" class="form-control" id="edit_amount" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_category" class="form-label">Category</label>
+                            <select class="form-control" id="edit_category" required>
+                                {% for category in categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="edit_description" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveExpenseEdit()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    let editModal;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
+        
+        // Add event listeners for edit buttons
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const expenseId = this.getAttribute('data-expense-id');
+                editExpense(expenseId);
+            });
+        });
+
+        // Add event listeners for delete buttons
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const expenseId = this.getAttribute('data-expense-id');
+                deleteExpense(expenseId);
+            });
+        });
+    });
+
+    function editExpense(expenseId) {
+        const row = document.getElementById(`expense-${expenseId}`);
+        const cells = row.getElementsByTagName('td');
+        
+        document.getElementById('edit_expense_id').value = expenseId;
+        document.getElementById('edit_amount').value = cells[1].textContent.replace('$', '');
+        document.getElementById('edit_category').value = cells[2].textContent;
+        document.getElementById('edit_description').value = cells[3].textContent;
+        
+        editModal.show();
+    }
+
+    function saveExpenseEdit() {
+        const expenseId = document.getElementById('edit_expense_id').value;
+        const formData = new FormData();
+        formData.append('amount', document.getElementById('edit_amount').value);
+        formData.append('category', document.getElementById('edit_category').value);
+        formData.append('description', document.getElementById('edit_description').value);
+        
+        fetch(`/edit_expense/${expenseId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                editModal.hide();
+                location.reload(); // Refresh to show updated data
+            } else {
+                alert('Error updating expense');
+            }
+        })
+        .catch(error => {
+            alert('Error updating expense: ' + error);
+        });
+    }
+
+    function deleteExpense(expenseId) {
+        if (confirm('Are you sure you want to delete this expense?')) {
+            fetch(`/delete_expense/${expenseId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Refresh to show updated data
+                } else {
+                    alert('Error deleting expense');
+                }
+            })
+            .catch(error => {
+                alert('Error deleting expense: ' + error);
+            });
+        }
+    }
+
+    // Update the summary after any changes
+    function updateSummary() {
+        fetch('/expense_summary')
+            .then(response => response.json())
+            .then(data => {
+                const summaryDiv = document.getElementById('summary');
+                let html = '<div class="table-responsive"><table class="table">';
+                html += '<thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>';
+                
+                for (const [category, amount] of Object.entries(data.categories)) {
+                    html += `<tr><td>${category}</td><td>$${amount.toFixed(2)}</td></tr>`;
+                }
+                
+                html += `<tr class="table-primary"><td><strong>Total</strong></td><td><strong>$${data.total.toFixed(2)}</strong></td></tr>`;
+                html += '</tbody></table></div>';
+                summaryDiv.innerHTML = html;
+            });
+    }
+    </script>
+</body>
+</html> 
